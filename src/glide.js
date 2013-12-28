@@ -1,16 +1,9 @@
 
 var windDirection = new THREE.Vector3( 0, 1, 0);
-var tolerance = .85;
+var tolerance = .5;
 
 var rot = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, .01, 0, 'XYZ'));
 
-function render() {
-	 setTimeout(function() {
-        requestAnimationFrame(render);
-		cameraContainer.quaternion.multiply(rot);		
-		renderer.render(scene, camera);		
-    }, 1000 / 60);
-}		
 
 var scene = new THREE.Scene();
 
@@ -19,9 +12,6 @@ var camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHe
 var cameraContainer = new THREE.Object3D();
 scene.add(cameraContainer);
 
-var samplesContainer = new THREE.Object3D();
-scene.add(samplesContainer);
-
 THREE.SceneUtils.attach(camera, scene, cameraContainer);
 camera.position.z = 5;
 
@@ -29,12 +19,18 @@ var renderer = new THREE.WebGLRenderer();
 renderer.setSize( window.innerWidth, window.innerHeight );
 document.body.appendChild( renderer.domElement );
 
-var baseGeometry = new THREE.SphereGeometry(2.5, 12, 12);
-
-drawAdjacency(baseGeometry, preprocessGeometry(baseGeometry));
-drawWireTriangles(baseGeometry);
-sampleGeometry(baseGeometry, 2);	
+//drawAdjacency(baseGeometry, preprocessGeometry(baseGeometry));
+//drawWireTriangles(baseGeometry);
 render();
+
+
+function render() {
+	 setTimeout(function() {
+        requestAnimationFrame(render);
+		cameraContainer.quaternion.multiply(rot);		
+		renderer.render(scene, camera);		
+    }, 1000 / 60);
+}		
 
 function clearScene(scene) {
 	var obj;
@@ -93,57 +89,6 @@ function preprocessGeometry(geometry) {
 	return faceAdjacency;
 }
 
-/*
-// Just for reference:
-// This method is a little bit heavier, because of duplicated vertices due to uv/normal seams
-function preprocessGeometry(geometry) {
-
-	function addAdjacentFaces(vertexIndex) {
-		var vertexAdj = vertexFaceAdjacency[vertexIndex];
-		for(var j = 0; j < vertexAdj.length; j++)
-		{
-			var adjFace = vertexAdj[j];		
-			if(adjFace != face && adj.indexOf(adjFace) == -1)
-				adj.push(adjFace);
-		}
-	}
-
-	// Get all faces adjacent to each vertex
-	var vertexFaceAdjacency = new Array(geometry.vertices.length);
-
-	for(var i = 0; i < geometry.vertices.length; i++) 
-		vertexFaceAdjacency[i] = new Array();
-
-	geometry.faces.forEach(function(face) {	
-		vertexFaceAdjacency[face.a].push(face);
-		vertexFaceAdjacency[face.b].push(face);
-		vertexFaceAdjacency[face.c].push(face);
-	});
-
-	// Now find similar vertices and fix adj... heavy.
-	for(var i = 0; i < geometry.vertices.length; i++) 
-		for(var j = 0; j < geometry.vertices.length; j++) 
-			if(i != j && geometry.vertices[i].distanceTo(geometry.vertices[j]) < 0.01) {
-				vertexFaceAdjacency[i] = vertexFaceAdjacency[i].concat(vertexFaceAdjacency[j]);
-				vertexFaceAdjacency[j] = vertexFaceAdjacency[i].slice(0);
-			}
-
-	// Two faces are defined as adjacent if they share vertices
-	var faceAdjacency = new Array(geometry.faces.length);
-
-	for(var i = 0; i < geometry.faces.length; i++) {
-		var face = geometry.faces[i];
-		var adj = new Array();
-
-		addAdjacentFaces(face.a);
-		addAdjacentFaces(face.b);
-		addAdjacentFaces(face.c);
-
-		faceAdjacency[i] = adj;
-	}
-
-	return faceAdjacency;
-}*/
 
 // Debug
 function drawWireTriangles(geometry) {
@@ -178,9 +123,6 @@ function drawAdjacency(geometry, faceAdjacency) {
 			dir.subVectors(adjacentFace.centroid, face.centroid);
 	
 			vertArray.push(face.centroid, dir.multiplyScalar(.25).add(face.centroid));	
-
-		//	var arrow = new THREE.ArrowHelper(dir, face.centroid, face.centroid.distanceTo(adjacentFace.centroid) * .25, 0xcc4444 );
-		//	scene.add(arrow);
 		});
 
 		lineGeometry.computeLineDistances();
@@ -190,11 +132,36 @@ function drawAdjacency(geometry, faceAdjacency) {
 	}
 }
 
-function sampleGeometry(geometry, surfaceDensity) {
+function sampleGeometry(geometry, sampleDensity) {
 
-	clearScene(samplesContainer);
+	// Current problem: we cant have lower densities than smallest triangle
+	// TODO: find all tris that pass the tolerance test and search sample in area space (with binary search)
+	function getMinimumArea()
+	{
+		var minArea = Infinity;
+ 
+		for(var i = 0; i < geometry.faces.length; i++) {
+			var face = geometry.faces[i];
+
+			var v1 = geometry.vertices[face.a];
+			var v2 = geometry.vertices[face.b];
+			var v3 = geometry.vertices[face.c];
+
+			var area = THREE.GeometryUtils.triangleArea(v1, v2, v3);
+
+			if(area < minArea)
+				minArea = area;
+		}
+
+		return minArea;
+	}
+
+	var minArea = getMinimumArea();
+	var samples = new Array();
 	
-	geometry.faces.forEach(function(face) {	
+	for(var faceIndex = 0; faceIndex < geometry.faces.length; faceIndex++) {
+
+		var face = geometry.faces[faceIndex];
 
 		// Only sample faces facing windDirection
 		if(face.normal.dot(windDirection) > 1 - tolerance * 2) {
@@ -203,21 +170,80 @@ function sampleGeometry(geometry, surfaceDensity) {
 			var v2 = geometry.vertices[face.b];
 			var v3 = geometry.vertices[face.c];
 
-			// TODO: threejs' triangleArea can be optimized by removing the branch
-			var area = THREE.GeometryUtils.triangleArea(v1, v2, v3) * surfaceDensity;
+			var area = THREE.GeometryUtils.triangleArea(v1, v2, v3) * sampleDensity / minArea;
 
 			for(var i = 0; i < area; i++) {
 
+				// TODO: threejs' randomPointInTriangle can be optimized by removing the branch
 				var p = THREE.GeometryUtils.randomPointInTriangle(v1, v2, v3);
 
-				// Debug thingies
-				var g = new THREE.SphereGeometry(.025, 2, 2);
-				var material = new THREE.MeshBasicMaterial({ color : 0xcccccc });
-				var cube = new THREE.Mesh( g, material );
-				cube.position = p;
+				var p2 = THREE.GeometryUtils.randomPointInTriangle(v1, v2, v3);
+				var tangent = new THREE.Vector3().subVectors(p2, p).normalize();
 
-				samplesContainer.add( cube );
+				samples.push({point : p, direction : tangent, faceIndex : faceIndex});
 			}
 		}
+	}
+
+	return samples;
+}
+
+// Debug
+function drawWireVines(vineArray) {
+	vineArray.forEach(function(vine) {
+		var lineGeometry = new THREE.Geometry();
+		var vertArray = lineGeometry.vertices;
+
+		vine.points.forEach(function(p){
+			vertArray.push(p);
+		});
+
+		lineGeometry.computeLineDistances();
+		var lineMaterial = new THREE.LineBasicMaterial( { color: 0x22FF22 } );
+		var line = new THREE.Line( lineGeometry, lineMaterial );
+		scene.add(line);
 	});
+}
+
+var baseGeometry = new THREE.SphereGeometry(2.5, 20, 20);
+var faceAdjacency = preprocessGeometry(baseGeometry);
+var vineArray = initializeVines(baseGeometry);
+
+
+growRandomVine(baseGeometry, faceAdjacency, vineArray);
+
+drawWireVines(vineArray);
+
+function growRandomVine(geometry, faceAdjacency, vineArray) {
+
+	var vineIndex = THREE.Math.randInt(0, vineArray.length - 1);
+
+	var vine = vineArray[vineIndex];
+
+
+}
+
+function initializeVines(geometry) {
+	var samples = sampleGeometry(baseGeometry, 1);	
+	var vineArray = new Array(samples.length);
+
+	for(var i = 0; i < samples.length; i++)
+		vineArray.push(createVine(samples[i].point, samples[i].direction, samples[i].faceIndex));
+
+	return vineArray;
+}
+
+function createVine(startPoint, startDirection, startFace) {
+	var v = { points : new Array(), currentDirection : startDirection, currentFaceIndex : startFace};
+	v.points.push(startPoint);
+	v.points.push(startPoint.clone().add(startDirection.clone().multiplyScalar(.2)));
+	return v;
+}
+
+function log(s) {
+	var div = document.getElementById("debug");
+	var p = document.createElement("p");
+	var t = document.createTextNode(s);
+	p.appendChild(t);
+	div.appendChild(p);
 }
