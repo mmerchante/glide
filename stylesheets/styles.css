@@ -8,7 +8,7 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  color:#222;
+  color:#ccc;
   margin:0 0 20px;
 }
 
@@ -33,14 +33,14 @@ h3, h4, h5, h6 {
 }
 
 a {
-  color:#39c;
-  font-weight:400;
+  color:#33B5E5;
+  font-weight:600;
   text-decoration:none;
 }
 
 a small {
-  font-size:11px;
-  color:#777;
+  font-size:14px;
+  color:#aaa;
   margin-top:-0.6em;
   display:block;
 }
@@ -131,7 +131,7 @@ header li {
 header ul a {
   line-height:1;
   font-size:11px;
-  color:#999;
+  color:#0099CC;
   display:block;
   text-align:center;
   padding-top:6px;
