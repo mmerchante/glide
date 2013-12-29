@@ -187,7 +187,7 @@ function drawWireVines(vineArray) {
 			});
 
 		lineGeometry.computeLineDistances();
-		var lineMaterial = new THREE.LineBasicMaterial( { color: 0xFF2222 } );
+		var lineMaterial = new THREE.LineBasicMaterial( { color: 0x99CC00 } );
 		var line = new THREE.Line( lineGeometry, lineMaterial );
 		scene.add(line);
 	});
