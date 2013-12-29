@@ -1,13 +1,14 @@
 
+var width = window.innerWidth;
+var height = window.innerHeight;
+
 var windDirection = new THREE.Vector3( 0, 1, 0);
 var tolerance = .1;
 
 var rot = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, .01, 0, 'XYZ'));
-
-
 var scene = new THREE.Scene();
 
-var camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+var camera = new THREE.PerspectiveCamera( 75, width / height, 0.1, 1000 );
 
 var cameraContainer = new THREE.Object3D();
 scene.add(cameraContainer);
@@ -15,8 +16,9 @@ scene.add(cameraContainer);
 THREE.SceneUtils.attach(camera, scene, cameraContainer);
 camera.position.z = 5;
 
-var renderer = new THREE.WebGLRenderer();
-renderer.setSize( window.innerWidth, window.innerHeight );
+var renderer = new THREE.WebGLRenderer(document.getElementById({ canvas : "glideCanvas" }));
+renderer.setSize( width, height);
+renderer.setClearColorHex( 0x151515, 1 );
 document.body.appendChild( renderer.domElement );
 
 //drawAdjacency(baseGeometry, preprocessGeometry(baseGeometry));
